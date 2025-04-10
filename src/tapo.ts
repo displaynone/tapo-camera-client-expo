@@ -1,4 +1,5 @@
-import * as crypto from "crypto";
+import CryptoJS from "crypto-js";
+import * as Random from "expo-random";
 import RNFetchBlob, { FetchBlobResponse } from "react-native-blob-util";
 import {
 	EncryptionMethod,
@@ -83,16 +84,12 @@ export class TapoCamera {
 			"Content-Type": "application/json; charset=UTF-8",
 		};
 
-		this.hashedPassword = crypto
-			.createHash("md5")
-			.update(password, "utf8")
-			.digest("hex")
+		this.hashedPassword = CryptoJS.MD5(password)
+			.toString(CryptoJS.enc.Hex)
 			.toUpperCase();
 
-		this.hashedSha256Password = crypto
-			.createHash("sha256")
-			.update(password, "utf8")
-			.digest("hex")
+		this.hashedSha256Password = CryptoJS.SHA256(password)
+			.toString(CryptoJS.enc.Hex)
 			.toUpperCase();
 
 		this.rnFetchBlock = RNFetchBlob.config({ trusty: true });
@@ -480,31 +477,45 @@ export class TapoCamera {
 		}
 	}
 
+	private decryptAes128CbcBase64(
+		encrypted: Buffer,
+		keyBuffer: Buffer,
+		ivBuffer: Buffer
+	): string {
+		const keyWordArray = CryptoJS.enc.Hex.parse(keyBuffer.toString("hex"));
+		const ivWordArray = CryptoJS.enc.Hex.parse(ivBuffer.toString("hex"));
+		const ciphertextWordArray = CryptoJS.enc.Base64.parse(
+			encrypted.toString("base64")
+		);
+
+		const cipherParams = CryptoJS.lib.CipherParams.create({
+			ciphertext: ciphertextWordArray,
+		});
+
+		const decrypted = CryptoJS.AES.decrypt(cipherParams, keyWordArray, {
+			iv: ivWordArray,
+			mode: CryptoJS.mode.CBC,
+			padding: CryptoJS.pad.Pkcs7,
+		});
+
+		return decrypted.toString(CryptoJS.enc.Utf8);
+	}
+
 	private decryptResponse(response: Buffer): string {
 		if (!this.lsk || !this.ivb) return "";
-		const decipher = crypto.createDecipheriv("aes-128-cbc", this.lsk, this.ivb);
-		const decrypted = Buffer.concat([
-			decipher.update(response),
-			decipher.final(),
-		]);
-		return decrypted.toString("utf-8");
+		return this.decryptAes128CbcBase64(response, this.lsk, this.ivb);
+	}
+
+	private sha256HexUpper(input: string): string {
+		return CryptoJS.SHA256(CryptoJS.enc.Utf8.parse(input))
+			.toString(CryptoJS.enc.Hex)
+			.toUpperCase();
 	}
 
 	private getTag(request: any): string {
-		const hash1 = crypto
-			.createHash("sha256")
-			.update(this.getHashedPassword() + this.cnonce, "utf8")
-			.digest("hex")
-			.toUpperCase();
-
+		const hash1 = this.sha256HexUpper(this.getHashedPassword() + this.cnonce);
 		const payload = hash1 + JSON.stringify(request) + String(this.seq);
-
-		const tag = crypto
-			.createHash("sha256")
-			.update(payload, "utf8")
-			.digest("hex")
-			.toUpperCase();
-
+		const tag = this.sha256HexUpper(payload);
 		return tag;
 	}
 
@@ -512,23 +523,22 @@ export class TapoCamera {
 		if (!this.lsk || !this.ivb) {
 			return Buffer.from("");
 		}
-		const blockSize = 16;
 
-		// Padding estilo PKCS7
-		const pad = (text: string): Buffer => {
-			const buffer = Buffer.from(text, "utf8");
-			const padding = blockSize - (buffer.length % blockSize);
-			const padded = Buffer.concat([buffer, Buffer.alloc(padding, padding)]);
-			return padded;
-		};
+		const keyHex = this.lsk.toString("hex");
+		const ivHex = this.ivb.toString("hex");
 
-		const cipher = crypto.createCipheriv("aes-128-cbc", this.lsk, this.ivb);
-		const paddedRequest = pad(request);
-		const encrypted = Buffer.concat([
-			cipher.update(paddedRequest),
-			cipher.final(),
-		]);
-		return encrypted;
+		const key = CryptoJS.enc.Hex.parse(keyHex);
+		const iv = CryptoJS.enc.Hex.parse(ivHex);
+		const plaintext = CryptoJS.enc.Utf8.parse(request);
+
+		const encrypted = CryptoJS.AES.encrypt(plaintext, key, {
+			iv,
+			mode: CryptoJS.mode.CBC,
+			padding: CryptoJS.pad.Pkcs7,
+		});
+
+		// Convertimos el resultado a Buffer (desde base64)
+		return Buffer.from(encrypted.toString(), "base64");
 	}
 
 	private async sendKlapRequest(request: any, retry = 0): Promise<any> {
@@ -637,17 +647,13 @@ export class TapoCamera {
 	private validateDeviceConfirm(nonce: string, deviceConfirm: string): boolean {
 		this.passwordEncryptionMethod = null;
 
-		const hashedNoncesWithSHA256 = crypto
-			.createHash("sha256")
-			.update(this.cnonce + this.hashedSha256Password + nonce, "utf8")
-			.digest("hex")
-			.toUpperCase();
+		const hashedNoncesWithSHA256 = this.sha256HexUpper(
+			this.cnonce + this.hashedSha256Password + nonce
+		);
 
-		const hashedNoncesWithMD5 = crypto
-			.createHash("sha256")
-			.update(this.cnonce + this.hashedPassword + nonce, "utf8")
-			.digest("hex")
-			.toUpperCase();
+		const hashedNoncesWithMD5 = this.sha256HexUpper(
+			this.cnonce + this.hashedPassword + nonce
+		);
 
 		if (deviceConfirm === hashedNoncesWithSHA256 + nonce + this.cnonce) {
 			this.passwordEncryptionMethod = EncryptionMethod.SHA256;
@@ -659,27 +665,27 @@ export class TapoCamera {
 	}
 
 	private generateEncryptionToken(tokenType: string, nonce: string): Buffer {
-		const hashedKey = crypto
-			.createHash("sha256")
-			.update(this.cnonce + this.getHashedPassword() + nonce, "utf8")
-			.digest("hex")
-			.toUpperCase();
+		const hashedKey = this.sha256HexUpper(
+			this.cnonce + this.getHashedPassword() + nonce
+		);
 
-		const fullHash = crypto
-			.createHash("sha256")
-			.update(tokenType + this.cnonce + nonce + hashedKey, "utf8")
-			.digest();
+		const fullHash = CryptoJS.SHA256(
+			CryptoJS.enc.Utf8.parse(tokenType + this.cnonce + nonce + hashedKey)
+		);
 
-		return fullHash.subarray(0, 16);
+		const hashHex = fullHash.toString(CryptoJS.enc.Hex);
+		const hashBuffer = Buffer.from(hashHex, "hex");
+		return hashBuffer.subarray(0, 16);
 	}
 
-	private generateNonce(length: number): Buffer {
-		return crypto.randomBytes(length);
+	private async generateNonce(length: number): Promise<Buffer> {
+		const randomBytes = await Random.getRandomBytesAsync(length);
+		return Buffer.from(randomBytes);
 	}
 
 	private async refreshStok(loginRetryCount = 0): Promise<string> {
 		this.debugLog("Refreshing stok...");
-		this.cnonce = this.generateNonce(8).toString("hex").toUpperCase();
+		this.cnonce = (await this.generateNonce(8)).toString("hex").toUpperCase();
 		const url = `https://${this.getControlHost()}`;
 
 		let data: any;
@@ -738,17 +744,9 @@ export class TapoCamera {
 				const nonce = resultData.nonce;
 				if (this.validateDeviceConfirm(nonce, resultData.device_confirm)) {
 					this.debugLog("Signing in with digestPasswd.");
-					const digestPasswd = crypto
-						.createHash("sha256")
-						.update(
-							Buffer.concat([
-								Buffer.from(this.getHashedPassword(), "utf8"),
-								Buffer.from(this.cnonce, "utf8"),
-								Buffer.from(nonce, "utf8"),
-							])
-						)
-						.digest("hex")
-						.toUpperCase();
+					const digestPasswd = this.sha256HexUpper(
+						this.getHashedPassword() + this.cnonce + nonce
+					);
 
 					const digest = digestPasswd + this.cnonce + nonce;
 
