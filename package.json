@@ -1,6 +1,6 @@
 {
   "name": "tapo-camera-client-expo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Expo client for controlling Tapo cameras",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
