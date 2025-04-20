@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Buffer as RNBuffer } from 'buffer';
-import CryptoES from 'crypto-es';
-import { NativeModules } from 'react-native';
-import { ERROR_CODES, MAX_LOGIN_RETRIES } from './constants';
+import { Buffer as RNBuffer } from "buffer";
+import CryptoES from "crypto-es";
+import { NativeModules } from "react-native";
+import { ERROR_CODES, MAX_LOGIN_RETRIES } from "./constants";
 import {
 	APIResponseGeneric,
 	EncryptedAPIResponse,
@@ -29,7 +29,7 @@ import {
 	TapoTimezoneData,
 	TapoVideoCapabilities,
 	TapoVideoQualities,
-} from './types';
+} from "./types";
 
 const { UnsafeHttp } = NativeModules;
 
@@ -49,10 +49,10 @@ export class TapoCamera {
 	private childID: string | null;
 	private isSecureConnectionCached: boolean | null = true;
 	private headers: Record<string, string> = {};
-	private hashedPassword: string = '';
-	private hashedSha256Password: string = '';
+	private hashedPassword: string = "";
+	private hashedSha256Password: string = "";
 	private basicInfo: any;
-	private deviceType: string = '';
+	private deviceType: string = "";
 	private presets: any;
 	private timeCorrection?: number;
 
@@ -77,28 +77,30 @@ export class TapoCamera {
 		this.headers = {
 			Host: this.getControlHost(),
 			Referer: `https://${this.getControlHost()}`,
-			Accept: 'application/json',
-			'Accept-Encoding': 'gzip, deflate',
-			'User-Agent': 'Tapo CameraClient Android',
-			Connection: 'close',
-			requestByApp: 'true',
-			'Content-Type': 'application/json; charset=UTF-8',
+			Accept: "application/json",
+			"Accept-Encoding": "gzip, deflate",
+			"User-Agent": "Tapo CameraClient Android",
+			Connection: "close",
+			requestByApp: "true",
+			"Content-Type": "application/json; charset=UTF-8",
 		};
 
 		this.hashedPassword = CryptoES.MD5(password).toString().toUpperCase();
-		this.hashedSha256Password = CryptoES.SHA256(password).toString().toUpperCase();
+		this.hashedSha256Password = CryptoES.SHA256(password)
+			.toString()
+			.toUpperCase();
 	}
 
 	async init() {
 		this.basicInfo = await this.getBasicInfo();
 
-		if ('type' in this.basicInfo) {
-			this.deviceType = this.basicInfo['type'];
+		if ("type" in this.basicInfo) {
+			this.deviceType = this.basicInfo["type"];
 		} else if (this.basicInfo.device_info?.basic_info?.device_type) {
 			this.deviceType = this.basicInfo.device_info.basic_info.device_type;
 		} else {
-			this.deviceType = '';
-			throw new Error('Failed to detect device type.');
+			this.deviceType = "";
+			throw new Error("Failed to detect device type.");
 		}
 
 		this.presets = this.isSupportingPresets();
@@ -113,8 +115,8 @@ export class TapoCamera {
 	}
 
 	async getBasicInfo(): Promise<TapoBasicInfo> {
-		const res = await this.executeFunction<TapoBasicInfo>('getDeviceInfo', {
-			device_info: { name: ['basic_info'] },
+		const res = await this.executeFunction<TapoBasicInfo>("getDeviceInfo", {
+			device_info: { name: ["basic_info"] },
 		});
 		return res;
 	}
@@ -133,41 +135,39 @@ export class TapoCamera {
 		}
 	}
 
-	private async executeFunction<T>(method: string, params: any, retry = false): Promise<T> {
+	private async executeFunction<T>(
+		method: string,
+		params: any,
+		retry = false
+	): Promise<T> {
 		let data: any;
 
-		if (method === 'multipleRequest') {
+		if (method === "multipleRequest") {
 			if (params !== null && params !== undefined) {
-				data = (
-					await this.performRequest<any>({
-						method: 'multipleRequest',
-						params: params,
-					})
-				);
+				data = await this.performRequest<any>({
+					method: "multipleRequest",
+					params: params,
+				});
 			} else {
-				data = (
-					await this.performRequest<any>({
-						method: 'multipleRequest',
-					})
-				);
+				data = await this.performRequest<any>({
+					method: "multipleRequest",
+				});
 			}
 		} else {
 			if (params !== null && params !== undefined) {
 				data = await this.performRequest<any>({
-					method: 'multipleRequest',
+					method: "multipleRequest",
 					params: {
 						requests: [{ method: method, params: params }],
 					},
 				});
 			} else {
-				data = (
-					await this.performRequest<any>({
-						method: 'multipleRequest',
-						params: {
-							requests: [{ method: method }],
-						},
-					})
-				);
+				data = await this.performRequest<any>({
+					method: "multipleRequest",
+					params: {
+						requests: [{ method: method }],
+					},
+				});
 			}
 		}
 
@@ -175,27 +175,41 @@ export class TapoCamera {
 			return data as T;
 		}
 
-		if ('result' in data && (!('error_code' in data) || data.error_code === 0)) {
+		if (
+			"result" in data &&
+			(!("error_code" in data) || data.error_code === 0)
+		) {
 			return data.result as T;
-		} else if ('method' in data && 'error_code' in data && data.error_code === 0) {
+		} else if (
+			"method" in data &&
+			"error_code" in data &&
+			data.error_code === 0
+		) {
 			return data;
 		} else {
-			if ('error_code' in data && data.error_code === -64303 && retry === false) {
+			if (
+				"error_code" in data &&
+				data.error_code === -64303 &&
+				retry === false
+			) {
 				this.setCruise(false);
 				return this.executeFunction(method, params, true);
 			}
 
-			const errMsg = 'err_msg' in data ? data.err_msg : this.getErrorMessage(data.error_code);
+			const errMsg =
+				"err_msg" in data
+					? data.err_msg
+					: this.getErrorMessage(data.error_code);
 
 			throw new Error(`Error: ${errMsg}, Response: ${JSON.stringify(data)}`);
 		}
 	}
 
 	private async request<T>(
-		method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+		method: "GET" | "POST" | "PUT" | "DELETE",
 		url: string,
 		headers: Record<string, string> = {},
-		data: any,
+		data: any
 	) {
 		if (this.printDebugInformation) {
 			const redactedConfig = JSON.parse(JSON.stringify({ headers, data })); // deep clone
@@ -204,14 +218,17 @@ export class TapoCamera {
 				if (redactedConfig.data) {
 					try {
 						const parsedData =
-							typeof redactedConfig.data === 'string'
+							typeof redactedConfig.data === "string"
 								? JSON.parse(redactedConfig.data)
 								: redactedConfig.data;
 
 						if (parsedData.params) {
-							if (parsedData.params.password) parsedData.params.password = 'REDACTED';
-							if (parsedData.params.digest_passwd) parsedData.params.digest_passwd = 'REDACTED';
-							if (parsedData.params.cnonce) parsedData.params.cnonce = 'REDACTED';
+							if (parsedData.params.password)
+								parsedData.params.password = "REDACTED";
+							if (parsedData.params.digest_passwd)
+								parsedData.params.digest_passwd = "REDACTED";
+							if (parsedData.params.cnonce)
+								parsedData.params.cnonce = "REDACTED";
 						}
 
 						redactedConfig.data = parsedData;
@@ -222,13 +239,16 @@ export class TapoCamera {
 				}
 
 				if (redactedConfig.headers) {
-					if (redactedConfig.headers['Tapo_tag']) redactedConfig.headers['Tapo_tag'] = 'REDACTED';
-					if (redactedConfig.headers['Host']) redactedConfig.headers['Host'] = 'REDACTED';
-					if (redactedConfig.headers['Referer']) redactedConfig.headers['Referer'] = 'REDACTED';
+					if (redactedConfig.headers["Tapo_tag"])
+						redactedConfig.headers["Tapo_tag"] = "REDACTED";
+					if (redactedConfig.headers["Host"])
+						redactedConfig.headers["Host"] = "REDACTED";
+					if (redactedConfig.headers["Referer"])
+						redactedConfig.headers["Referer"] = "REDACTED";
 				}
 			}
 
-			this.debugLog('New request:');
+			this.debugLog("New request:");
 			this.debugLog(redactedConfig.data);
 		}
 
@@ -246,18 +266,20 @@ export class TapoCamera {
 					const loadJson = response;
 
 					if (this.redactConfidentialInformation && loadJson.result) {
-						if (loadJson.result.stok) loadJson.result.stok = 'REDACTED';
+						if (loadJson.result.stok) loadJson.result.stok = "REDACTED";
 						if (loadJson.result.data) {
-							if (loadJson.result.data.key) loadJson.result.data.key = 'REDACTED';
-							if (loadJson.result.data.nonce) loadJson.result.data.nonce = 'REDACTED';
+							if (loadJson.result.data.key)
+								loadJson.result.data.key = "REDACTED";
+							if (loadJson.result.data.nonce)
+								loadJson.result.data.nonce = "REDACTED";
 							if (loadJson.result.data.device_confirm)
-								loadJson.result.data.device_confirm = 'REDACTED';
+								loadJson.result.data.device_confirm = "REDACTED";
 						}
 					}
 
-					this.debugLog('RESPOSE'+ JSON.stringify(loadJson));
+					this.debugLog("RESPOSE" + JSON.stringify(loadJson));
 				} catch (err) {
-					this.debugLog('Failed to load json: ' + err);
+					this.debugLog("Failed to load json: " + err);
 				}
 			}
 
@@ -268,26 +290,29 @@ export class TapoCamera {
 		}
 	}
 
-	setCruise(enabled: boolean, coord: 'x' | 'y' | false = false): any {
-		if (coord !== false && coord !== 'x' && coord !== 'y') {
+	setCruise(enabled: boolean, coord: "x" | "y" | false = false): any {
+		if (coord !== false && coord !== "x" && coord !== "y") {
 			throw new Error("Invalid coord parameter. Can be 'x' or 'y'.");
 		}
 
 		if (enabled && coord !== false) {
-			return this.executeFunction('cruiseMove', {
+			return this.executeFunction("cruiseMove", {
 				motor: { cruise: { coord } },
 			});
 		} else {
-			return this.executeFunction('cruiseStop', {
+			return this.executeFunction("cruiseStop", {
 				motor: { cruise_stop: {} },
 			});
 		}
 	}
 
 	async getPresets(): Promise<TapoPresets> {
-		const data = await this.executeFunction<TapoPresetsData>('getPresetConfig', {
-			preset: { name: ['preset'] },
-		});
+		const data = await this.executeFunction<TapoPresetsData>(
+			"getPresetConfig",
+			{
+				preset: { name: ["preset"] },
+			}
+		);
 
 		this.presets = this.processPresetsResponse(data);
 		return this.presets;
@@ -305,7 +330,10 @@ export class TapoCamera {
 		return result;
 	}
 
-	private async performRequest<T>(requestData: any, loginRetryCount = 0): Promise<T> {
+	private async performRequest<T>(
+		requestData: any,
+		loginRetryCount = 0
+	): Promise<T> {
 		await this.executeAsyncExecutorJob(() => this.ensureAuthenticated());
 
 		let authValid = true;
@@ -316,11 +344,11 @@ export class TapoCamera {
 
 		if (this.childID) {
 			fullRequest = {
-				method: 'multipleRequest',
+				method: "multipleRequest",
 				params: {
 					requests: [
 						{
-							method: 'controlChild',
+							method: "controlChild",
 							params: {
 								childControl: {
 									device_id: this.childID,
@@ -337,24 +365,26 @@ export class TapoCamera {
 
 		if (this.seq !== null && (await this.isSecureConnection())) {
 			const encrypted = this.encryptRequest(JSON.stringify(fullRequest));
-			const base64Request = RNBuffer.from(encrypted).toString('base64');
+			const base64Request = RNBuffer.from(encrypted).toString("base64");
 
 			fullRequest = {
-				method: 'securePassthrough',
+				method: "securePassthrough",
 				params: {
 					request: base64Request,
 				},
 			};
 
-			this.headers['Seq'] = this.seq.toString();
+			this.headers["Seq"] = this.seq.toString();
 
 			try {
-				this.headers['Tapo_tag'] = this.getTag(fullRequest);
+				this.headers["Tapo_tag"] = this.getTag(fullRequest);
 			} catch (err: any) {
 				console.log(err);
-				if (err.message === 'Failure detecting hashing algorithm.') {
+				if (err.message === "Failure detecting hashing algorithm.") {
 					authValid = false;
-					this.debugLog('Failure detecting hashing algorithm on getTag, reauthenticating.');
+					this.debugLog(
+						"Failure detecting hashing algorithm on getTag, reauthenticating."
+					);
 				} else {
 					throw err;
 				}
@@ -364,24 +394,27 @@ export class TapoCamera {
 		}
 
 		res = await this.request<EncryptedAPIResponse>(
-			'POST',
+			"POST",
 			url,
 			this.headers,
-			JSON.stringify(fullRequest),
+			JSON.stringify(fullRequest)
 		);
 
 		const responseData: any = res.result;
 
 		if ((await this.isSecureConnection()) && responseData?.result.response) {
-			const encryptedResponse = RNBuffer.from(responseData.result.response, 'base64');
+			const encryptedResponse = RNBuffer.from(
+				responseData.result.response,
+				"base64"
+			);
 
 			try {
 				const decrypted = this.decryptResponse(encryptedResponse);
 				responseJSON = JSON.parse(decrypted);
 			} catch (err: any) {
 				if (
-					err.message === 'Padding is incorrect.' ||
-					err.message === 'PKCS#7 padding is incorrect.'
+					err.message === "Padding is incorrect." ||
+					err.message === "PKCS#7 padding is incorrect."
 				) {
 					this.debugLog(`${err.message} Reauthenticating.`);
 					authValid = false;
@@ -393,7 +426,7 @@ export class TapoCamera {
 			responseJSON = responseData;
 		}
 		if (!responseJSON) {
-			throw new Error('responseJSON no valid');
+			throw new Error("responseJSON no valid");
 		}
 
 		if (!authValid) {
@@ -406,7 +439,7 @@ export class TapoCamera {
 				return this.performRequest(requestData, loginRetryCount + 1);
 			} else {
 				throw new Error(
-					`Error: ${this.getErrorMessage(errorCode)}, Response: ${JSON.stringify(responseJSON)}`,
+					`Error: ${this.getErrorMessage(errorCode)}, Response: ${JSON.stringify(responseJSON)}`
 				);
 			}
 		}
@@ -414,7 +447,7 @@ export class TapoCamera {
 		// Clean up child device response
 		if (this.childID) {
 			const responses = responseJSON.result.responses.map((resp: any) => {
-				if (resp.method === 'controlChild') {
+				if (resp.method === "controlChild") {
 					return resp.result.response_data ?? resp.result;
 				} else {
 					return resp.result;
@@ -429,7 +462,7 @@ export class TapoCamera {
 	}
 
 	private decryptResponse(response: RNBuffer): string {
-		if (!this.lsk || !this.ivb) return '';
+		if (!this.lsk || !this.ivb) return "";
 
 		const key = CryptoES.lib.WordArray.create(this.lsk);
 		const iv = CryptoES.lib.WordArray.create(this.ivb);
@@ -451,23 +484,28 @@ export class TapoCamera {
 
 		const payload = hash1 + JSON.stringify(request) + String(this.seq);
 
-		const tag = CryptoES.SHA256(payload).toString(CryptoES.enc.Hex).toUpperCase();
+		const tag = CryptoES.SHA256(payload)
+			.toString(CryptoES.enc.Hex)
+			.toUpperCase();
 
 		return tag;
 	}
 
 	private encryptRequest(request: string): RNBuffer {
 		if (!this.lsk || !this.ivb) {
-			return RNBuffer.from('');
+			return RNBuffer.from("");
 		}
 
 		const blockSize = 16;
 
 		try {
 			const pad = (text: string): RNBuffer => {
-				const buffer = RNBuffer.from(text, 'utf8');
+				const buffer = RNBuffer.from(text, "utf8");
 				const padding = blockSize - (buffer.length % blockSize);
-				const padded = RNBuffer.concat([buffer, RNBuffer.alloc(padding, padding)]);
+				const padded = RNBuffer.concat([
+					buffer,
+					RNBuffer.alloc(padding, padding),
+				]);
 				return padded;
 			};
 			const paddedRequest = pad(request);
@@ -483,10 +521,10 @@ export class TapoCamera {
 			});
 
 			const ciphertextHex = encrypted.ciphertext?.toString(CryptoES.enc.Hex);
-			return RNBuffer.from(ciphertextHex || '', 'hex');
+			return RNBuffer.from(ciphertextHex || "", "hex");
 		} catch (error) {
-			console.error('Error al encriptar:', error);
-			return RNBuffer.from('');
+			console.error("Error al encriptar:", error);
+			return RNBuffer.from("");
 		}
 	}
 
@@ -518,23 +556,29 @@ export class TapoCamera {
 		if (this.isSecureConnectionCached === null) {
 			const url = `https://${this.getControlHost()}`;
 			const data = {
-				method: 'login',
+				method: "login",
 				params: {
-					encrypt_type: '3',
+					encrypt_type: "3",
 					username: this.user,
 				},
 			};
 
 			try {
-				const res = await this.request<LoginResponse>('POST', url, this.headers, data);
+				const res = await this.request<LoginResponse>(
+					"POST",
+					url,
+					this.headers,
+					data
+				);
 
 				const response = res.result;
 
 				this.isSecureConnectionCached = !!(
-					response?.error_code === -40413 && response.result?.data?.encrypt_type?.includes('3')
+					response?.error_code === -40413 &&
+					response.result?.data?.encrypt_type?.includes("3")
 				);
 			} catch (error) {
-				console.log('Error checking secure connection:', error);
+				console.log("Error checking secure connection:", error);
 				this.isSecureConnectionCached = false;
 			}
 		}
@@ -548,14 +592,16 @@ export class TapoCamera {
 		} else if (this.passwordEncryptionMethod === EncryptionMethod.SHA256) {
 			return this.hashedSha256Password;
 		} else {
-			throw new Error('Failure detecting hashing algorithm.');
+			throw new Error("Failure detecting hashing algorithm.");
 		}
 	}
 
 	private validateDeviceConfirm(nonce: string, deviceConfirm: string): boolean {
 		this.passwordEncryptionMethod = null;
 
-		const hashSha256 = CryptoES.SHA256(this.cnonce + this.hashedSha256Password + nonce)
+		const hashSha256 = CryptoES.SHA256(
+			this.cnonce + this.hashedSha256Password + nonce
+		)
 			.toString(CryptoES.enc.Hex)
 			.toUpperCase();
 
@@ -574,7 +620,7 @@ export class TapoCamera {
 
 	private generateEncryptionToken(tokenType: string, nonce: string): RNBuffer {
 		const hash1 = CryptoES.SHA256(
-			CryptoES.enc.Utf8.parse(this.cnonce + this.getHashedPassword() + nonce),
+			CryptoES.enc.Utf8.parse(this.cnonce + this.getHashedPassword() + nonce)
 		)
 			.toString(CryptoES.enc.Hex)
 			.toUpperCase();
@@ -583,7 +629,7 @@ export class TapoCamera {
 		const fullHash = CryptoES.SHA256(CryptoES.enc.Utf8.parse(finalInput));
 
 		const hex = fullHash.toString(CryptoES.enc.Hex);
-		const buffer = RNBuffer.from(hex, 'hex');
+		const buffer = RNBuffer.from(hex, "hex");
 
 		return buffer.subarray(0, 16);
 	}
@@ -597,8 +643,8 @@ export class TapoCamera {
 	}
 
 	private async refreshStok(loginRetryCount = 0): Promise<string> {
-		this.debugLog('Refreshing stok...');
-		this.cnonce = this.generateNonce(8).toString('hex').toUpperCase();
+		this.debugLog("Refreshing stok...");
+		this.cnonce = this.generateNonce(8).toString("hex").toUpperCase();
 
 		const url = `https://${this.getControlHost()}`;
 
@@ -606,19 +652,19 @@ export class TapoCamera {
 		const isSecure = await this.isSecureConnection();
 
 		if (isSecure) {
-			this.debugLog('Connection is secure.');
+			this.debugLog("Connection is secure.");
 			data = {
-				method: 'login',
+				method: "login",
 				params: {
 					cnonce: this.cnonce,
-					encrypt_type: '3',
+					encrypt_type: "3",
 					username: this.user,
 				},
 			};
 		} else {
-			this.debugLog('Connection is insecure.');
+			this.debugLog("Connection is insecure.");
 			data = {
-				method: 'login',
+				method: "login",
 				params: {
 					hashed: true,
 					password: this.hashedPassword,
@@ -629,37 +675,39 @@ export class TapoCamera {
 
 		let res: RequestResponse<LoginResponse> | undefined = undefined;
 		try {
-			res = await this.request<LoginResponse>('POST', url, this.headers, data);
+			res = await this.request<LoginResponse>("POST", url, this.headers, data);
 		} catch (err) {
-			console.error('ERROR', err);
+			console.error("ERROR", err);
 		}
 
-		if (!res) return Promise.resolve('');
+		if (!res) return Promise.resolve("");
 
 		const result = res.result;
 		if (res.status === 401) {
 			try {
 				if (result.result?.data?.code === -40411) {
-					this.debugLog('Code is -40411, raising Exception.');
-					throw new Error('Invalid authentication data');
+					this.debugLog("Code is -40411, raising Exception.");
+					throw new Error("Invalid authentication data");
 				}
 			} catch (e: any) {
-				if (e.message === 'Invalid authentication data') throw e;
+				if (e.message === "Invalid authentication data") throw e;
 			}
 		}
 
 		let responseData = res.result;
 
 		if (await this.isSecureConnection()) {
-			this.debugLog('Processing secure response.');
+			this.debugLog("Processing secure response.");
 			const resultData = responseData?.result?.data;
 			if (resultData?.nonce && resultData?.device_confirm) {
-				this.debugLog('Validating device confirm.');
+				this.debugLog("Validating device confirm.");
 				const nonce = resultData.nonce;
 				if (this.validateDeviceConfirm(nonce, resultData.device_confirm)) {
-					this.debugLog('Signing in with digestPasswd.');
+					this.debugLog("Signing in with digestPasswd.");
 					const digestPasswd = CryptoES.SHA256(
-						CryptoES.enc.Utf8.parse(this.getHashedPassword() + this.cnonce + nonce),
+						CryptoES.enc.Utf8.parse(
+							this.getHashedPassword() + this.cnonce + nonce
+						)
 					)
 						.toString(CryptoES.enc.Hex)
 						.toUpperCase();
@@ -667,29 +715,36 @@ export class TapoCamera {
 					const digest = digestPasswd + this.cnonce + nonce;
 
 					data = {
-						method: 'login',
+						method: "login",
 						params: {
 							cnonce: this.cnonce,
-							encrypt_type: '3',
+							encrypt_type: "3",
 							digest_passwd: digest,
 							username: this.user,
 						},
 					};
 
-					res = await this.request<LoginResponse>('POST', url, this.headers, data);
+					res = await this.request<LoginResponse>(
+						"POST",
+						url,
+						this.headers,
+						data
+					);
 
 					responseData = res.result;
-					if (!responseData) return Promise.resolve('');
+					if (!responseData) return Promise.resolve("");
 					const result = responseData.result;
 
 					if (result?.start_seq) {
-						if (result.user_group !== 'root') {
-							this.debugLog('Incorrect user_group detected, raising Exception.');
-							throw new Error('Invalid authentication data');
+						if (result.user_group !== "root") {
+							this.debugLog(
+								"Incorrect user_group detected, raising Exception."
+							);
+							throw new Error("Invalid authentication data");
 						}
-						this.debugLog('Generating encryption tokens.');
-						this.lsk = this.generateEncryptionToken('lsk', nonce);
-						this.ivb = this.generateEncryptionToken('ivb', nonce);
+						this.debugLog("Generating encryption tokens.");
+						this.lsk = this.generateEncryptionToken("lsk", nonce);
+						this.ivb = this.generateEncryptionToken("ivb", nonce);
 						this.seq = result.start_seq;
 					}
 				} else {
@@ -700,17 +755,17 @@ export class TapoCamera {
 					) {
 						loginRetryCount++;
 						this.debugLog(
-							`Incorrect device_confirm value, retrying: ${loginRetryCount}/${MAX_LOGIN_RETRIES}.`,
+							`Incorrect device_confirm value, retrying: ${loginRetryCount}/${MAX_LOGIN_RETRIES}.`
 						);
 						return this.refreshStok(loginRetryCount);
 					} else {
-						this.debugLog('Incorrect device_confirm value, raising Exception.');
-						throw new Error('Invalid authentication data');
+						this.debugLog("Incorrect device_confirm value, raising Exception.");
+						throw new Error("Invalid authentication data");
 					}
 				}
 			}
 		} else {
-			this.passwordEncryptionMethod = 'MD5';
+			this.passwordEncryptionMethod = "MD5";
 		}
 
 		const dataField = responseData?.result?.data;
@@ -720,13 +775,15 @@ export class TapoCamera {
 			dataField.sec_left > 0 &&
 			(dataField?.time || dataField?.max_time || dataField?.code === -40404)
 		) {
-			throw new Error(`Temporary Suspension: Try again in ${dataField.sec_left} seconds`);
+			throw new Error(
+				`Temporary Suspension: Try again in ${dataField.sec_left} seconds`
+			);
 		}
 
 		if (responseData.result?.stok) {
-			this.debugLog('Saving stok.');
+			this.debugLog("Saving stok.");
 			this.stok = responseData.result!.stok!;
-			return this.stok || '';
+			return this.stok || "";
 		}
 
 		if (
@@ -735,11 +792,13 @@ export class TapoCamera {
 			loginRetryCount < MAX_LOGIN_RETRIES
 		) {
 			loginRetryCount++;
-			this.debugLog(`Unexpected response, retrying: ${loginRetryCount}/${MAX_LOGIN_RETRIES}.`);
+			this.debugLog(
+				`Unexpected response, retrying: ${loginRetryCount}/${MAX_LOGIN_RETRIES}.`
+			);
 			return this.refreshStok(loginRetryCount);
 		} else {
-			this.debugLog('Unexpected response, raising Exception.');
-			throw new Error('Invalid authentication data');
+			this.debugLog("Unexpected response, raising Exception.");
+			throw new Error("Invalid authentication data");
 		}
 	}
 
@@ -748,16 +807,16 @@ export class TapoCamera {
 	}
 
 	async getLED(): Promise<TapoLED> {
-		const result = await this.executeFunction<TapoLEDConfig>('getLedStatus', {
-			led: { name: ['config'] },
+		const result = await this.executeFunction<TapoLEDConfig>("getLedStatus", {
+			led: { name: ["config"] },
 		});
 
 		return result.led.config;
 	}
 
 	public async getTime(): Promise<TapoTimeData> {
-		return await this.executeFunction<TapoTimeData>('getClockStatus', {
-			system: { name: 'clock_status' },
+		return await this.executeFunction<TapoTimeData>("getClockStatus", {
+			system: { name: "clock_status" },
 		});
 	}
 
@@ -765,10 +824,12 @@ export class TapoCamera {
 		if (this.timeCorrection === undefined) {
 			const currentTime = await this.getTime();
 			const nowTS = Math.floor(Date.now() / 1000);
-			const timeReturned = currentTime?.system?.clock_status?.seconds_from_1970 !== undefined;
+			const timeReturned =
+				currentTime?.system?.clock_status?.seconds_from_1970 !== undefined;
 
 			if (timeReturned) {
-				this.timeCorrection = nowTS - currentTime.system.clock_status.seconds_from_1970;
+				this.timeCorrection =
+					nowTS - currentTime.system.clock_status.seconds_from_1970;
 			} else if (currentTime?.timestamp !== undefined) {
 				this.timeCorrection = nowTS - currentTime.timestamp;
 			}
@@ -779,11 +840,11 @@ export class TapoCamera {
 
 	public async getEvents(
 		startTime: number | false = false,
-		endTime: number | false = false,
+		endTime: number | false = false
 	): Promise<any[]> {
 		const timeCorrection = await this.getTimeCorrection();
 		if (timeCorrection === undefined) {
-			throw new Error('Failed to get correct camera time.');
+			throw new Error("Failed to get correct camera time.");
 		}
 
 		const nowTS = Date.now() / 1000;
@@ -795,21 +856,25 @@ export class TapoCamera {
 		}
 
 		try {
-			const responseData = await this.executeFunction<any>('searchDetectionList', {
-				playback: {
-					search_detection_list: {
-						start_index: 0,
-						channel: 0,
-						start_time: startTime * 1000,
-						end_time: endTime * 1000,
-						end_index: 999,
+			const responseData = await this.executeFunction<any>(
+				"searchDetectionList",
+				{
+					playback: {
+						search_detection_list: {
+							start_index: 0,
+							channel: 0,
+							start_time: startTime * 1000,
+							end_time: endTime * 1000,
+							end_index: 999,
+						},
 					},
-				},
-			});
+				}
+			);
 
 			const events: any[] = [];
 
-			const detectionsReturned = responseData?.playback?.search_detection_list !== undefined;
+			const detectionsReturned =
+				responseData?.playback?.search_detection_list !== undefined;
 
 			if (detectionsReturned) {
 				for (const event of responseData.playback.search_detection_list) {
@@ -829,34 +894,37 @@ export class TapoCamera {
 	}
 
 	public async getVideoQualities(): Promise<TapoVideoQualities> {
-		return this.executeFunction<TapoVideoQualities>('getVideoQualities', {
-			video: { name: ['main'] },
+		return this.executeFunction<TapoVideoQualities>("getVideoQualities", {
+			video: { name: ["main"] },
 		});
 	}
 
 	public async getVideoCapability(): Promise<TapoVideoCapabilities> {
-		return this.executeFunction<TapoVideoCapabilities>('getVideoCapability', {
-			video_capability: { name: ['main'] },
+		return this.executeFunction<TapoVideoCapabilities>("getVideoCapability", {
+			video_capability: { name: ["main"] },
 		});
 	}
 
 	public async getPrivacyMode(): Promise<TapoLensMaskStatus> {
-		const data = await this.executeFunction<TapoLensMask>('getLensMaskConfig', {
-			lens_mask: { name: ['lens_mask_info'] },
+		const data = await this.executeFunction<TapoLensMask>("getLensMaskConfig", {
+			lens_mask: { name: ["lens_mask_info"] },
 		});
 		return data.lens_mask.lens_mask_info.enabled;
 	}
 
 	public async getMediaEncrypt(): Promise<TapoMediaEncryptStatus> {
-		const data = await this.executeFunction<TapoMediaEncrypt>('getMediaEncrypt', {
-			cet: { name: ['media_encrypt'] },
-		});
+		const data = await this.executeFunction<TapoMediaEncrypt>(
+			"getMediaEncrypt",
+			{
+				cet: { name: ["media_encrypt"] },
+			}
+		);
 		return data.cet.media_encrypt.enabled;
 	}
 
 	public async getTimezone(): Promise<TapoTimezone> {
-		const data = await this.executeFunction<TapoTimezoneData>('getTimezone', {
-			system: { name: ['basic'] },
+		const data = await this.executeFunction<TapoTimezoneData>("getTimezone", {
+			system: { name: ["basic"] },
 		});
 		return data.system.basic;
 	}
@@ -871,9 +939,9 @@ export class TapoCamera {
 	public async setTimezone(
 		timezone: string,
 		zoneID: string,
-		timingMode: string,
+		timingMode: string
 	): Promise<TapoTimezone> {
-		const data = await this.executeFunction<TapoTimezoneData>('setTimezone', {
+		const data = await this.executeFunction<TapoTimezoneData>("setTimezone", {
 			system: {
 				basic: {
 					timing_mode: timingMode,
@@ -886,38 +954,41 @@ export class TapoCamera {
 	}
 
 	public async getRotationStatus(): Promise<TapoRotationStatus> {
-		const data = await this.executeFunction<TapoRotationStatusData>('getRotationStatus', {
-			image: { name: ['switch'] },
-		});
+		const data = await this.executeFunction<TapoRotationStatusData>(
+			"getRotationStatus",
+			{
+				image: { name: ["switch"] },
+			}
+		);
 		return data.image.switch;
 	}
 
 	public async getSDCard(): Promise<Record<string, TapoSDCardInfo>[]> {
-		const data = await this.executeFunction<TapoSDCardData>('getSdCardStatus', {
-			harddisk_manage: { table: ['hd_info'] },
+		const data = await this.executeFunction<TapoSDCardData>("getSdCardStatus", {
+			harddisk_manage: { table: ["hd_info"] },
 		});
 		return data.harddisk_manage.hd_info;
 	}
 
 	public async setPrivacyMode(enabled: TapoLensMaskStatus): Promise<void> {
-		return await this.executeFunction<void>('setLensMaskConfig', {
+		return await this.executeFunction<void>("setLensMaskConfig", {
 			lens_mask: { lens_mask_info: { enabled: enabled } },
 		});
 	}
 
 	public async moveMotor(x: number, y: number): Promise<void> {
 		return await this.performRequest({
-			method: 'do',
+			method: "do",
 			motor: { move: { x_coord: `${x}`, y_coord: `${y}` } },
 		});
 	}
 
 	public async moveMotorStep(angle: number): Promise<void> {
 		if (angle < 0 || angle >= 360) {
-			throw new Error('Angle must be in a range 0 <= angle < 360');
+			throw new Error("Angle must be in a range 0 <= angle < 360");
 		}
 		return await this.performRequest({
-			method: 'do',
+			method: "do",
 			motor: { movestep: { direction: `${angle}` } },
 		});
 	}
@@ -939,7 +1010,7 @@ export class TapoCamera {
 	}
 
 	public async setLEDEnabled(enabled: TapoLEDStatus): Promise<void> {
-		return await this.executeFunction<void>('setLedStatus', {
+		return await this.executeFunction<void>("setLedStatus", {
 			led: { config: { enabled: enabled } },
 		});
 	}

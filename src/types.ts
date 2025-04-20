@@ -50,14 +50,17 @@ export type EncryptedAPIResponse = {
 	seq: number;
 };
 
-export type APIResponseGeneric<T> = { error_code: number; result: { responses: T[] } };
+export type APIResponseGeneric<T> = {
+	error_code: number;
+	result: { responses: T[] };
+};
 
-const TapoOnOff = ['on', 'off'] as const;
+const TapoOnOff = ["on", "off"] as const;
 export type TapoLEDStatus = (typeof TapoOnOff)[number];
 
 export type TapoLED = {
-	'.name': string;
-	'.type': string;
+	".name": string;
+	".type": string;
 	enabled: TapoLEDStatus;
 };
 
@@ -108,8 +111,8 @@ export type TapoPresetsData = {
 export type TapoPresets = Record<string, string>;
 
 export enum EncryptionMethod {
-	MD5 = 'md5',
-	SHA256 = 'sha256',
+	MD5 = "md5",
+	SHA256 = "sha256",
 }
 
 export type TapoTimeData = {

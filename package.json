@@ -1,6 +1,6 @@
 {
   "name": "tapo-camera-client-expo",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Expo client for controlling Tapo cameras",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -44,8 +44,8 @@
   },
   "homepage": "https://github.com/displaynone/tapo-camera-client-expo#readme",
   "dependencies": {
-    "crypto-js": "^4.2.0",
-    "expo-random": "^14.0.1",
-    "react-native-blob-util": "^0.21.2"
+    "buffer": "^6.0.3",
+    "crypto-es": "^2.1.0",
+    "react-native": "^0.79.1"
   }
 }
